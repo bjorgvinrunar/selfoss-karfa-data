@@ -1,4 +1,85 @@
 {
-  "updated": "2026-04-23T00:00:00+00:00",
-  "teams": []
+  "updated": "2026-04-23T23:22:31.384213+00:00",
+  "teams": [
+    {
+      "key": "karlar",
+      "name": "Meistaraflokkur karla",
+      "color": "#1a3a6b",
+      "league_id": 191,
+      "season_id": 130402,
+      "team_id": 4695391,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=191&season_id=130402&team_id=4695391",
+      "games": []
+    },
+    {
+      "key": "konur",
+      "name": "Meistaraflokkur kvenna",
+      "color": "#6b1a3a",
+      "league_id": 231,
+      "season_id": 130421,
+      "team_id": 4765539,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=231&season_id=130421&team_id=4765539",
+      "games": []
+    },
+    {
+      "key": "u_karlar",
+      "name": "Selfoss U",
+      "color": "#1a5a3a",
+      "league_id": 232,
+      "season_id": 130496,
+      "team_id": 4772377,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=232&season_id=130496&team_id=4772377",
+      "games": []
+    },
+    {
+      "key": "fl12",
+      "name": "12. flokkur drengja",
+      "color": "#3a1a6b",
+      "league_id": 192,
+      "season_id": 130492,
+      "team_id": 4749665,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=192&season_id=130492&team_id=4749665",
+      "games": []
+    },
+    {
+      "key": "fl11",
+      "name": "11. flokkur drengja",
+      "color": "#5a3a1a",
+      "league_id": 195,
+      "season_id": 130490,
+      "team_id": 4749663,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=195&season_id=130490&team_id=4749663",
+      "games": []
+    },
+    {
+      "key": "fl10d",
+      "name": "10. flokkur drengja",
+      "color": "#1a5a5a",
+      "league_id": 196,
+      "season_id": 130486,
+      "team_id": 4735179,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=196&season_id=130486&team_id=4735179",
+      "games": []
+    },
+    {
+      "key": "fl9",
+      "name": "9. flokkur drengja",
+      "color": "#5a1a1a",
+      "league_id": 197,
+      "season_id": 130497,
+      "team_id": 4725337,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=197&season_id=130497&team_id=4725337",
+      "games": []
+    },
+    {
+      "key": "fl10s",
+      "name": "10. flokkur stúlkna",
+      "color": "#6b1a5a",
+      "league_id": 193,
+      "season_id": 130488,
+      "team_id": 4772386,
+      "kki_url": "https://kki.is/motamal/leikir-og-urslit/motayfirlit/Eitt-lid?league_id=193&season_id=130488&team_id=4772386",
+      "games": []
+    }
+  ]
 }
