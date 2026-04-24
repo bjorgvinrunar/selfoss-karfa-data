@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-24T11:06:34.032522+00:00",
+  "updated": "2026-04-24T11:15:03.861282+00:00",
   "teams": [
     {
       "key": "karlar",
@@ -82,70 +82,5 @@
       "games": []
     }
   ],
-  "debug": [
-    {
-      "team": "karlar",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "konur",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "u_karlar",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "fl12",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "fl11",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "fl10d",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "fl9",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    },
-    {
-      "team": "fl10s",
-      "mbt_urls": [
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-core-1.4.5-full-nocompat-yc.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/mootools-more-1.4.0.1.js",
-        "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
-      ]
-    }
-  ]
+  "debug": {}
 }
