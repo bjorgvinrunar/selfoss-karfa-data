@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Selfoss Körfubolti — KKÍ/MBT gagnasækir v3
-Kallar beint á MBT API með kki.is Origin/Referer til að komast framhjá CORS.
+Selfoss Körfubolti — KKÍ/MBT gagnasækir v4
+Les kki.js til að finna API endapunktana, sækir svo gögn beint.
 """
 
 import json
 import os
-import time
+import re
 import sys
 from datetime import datetime, timezone
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
@@ -22,15 +22,7 @@ TEAMS = [
     {"key": "fl10s",    "name": "10. flokkur stúlkna",      "league_id": 193, "season_id": 130488, "team_id": 4772386, "color": "#6b1a5a"},
 ]
 
-# MBT API endapunktar sem við reynum fyrir hvert lið
-# {0}=league_id, {1}=season_id, {2}=team_id
-MBT_URLS = [
-    "https://web1.mbt.lt/prod/api/v1/leagues/{0}/seasons/{1}/teams/{2}/games",
-    "https://web1.mbt.lt/prod/api/v1/seasons/{1}/teams/{2}/games",
-    "https://web1.mbt.lt/prod/api/v1/teams/{2}/games?season_id={1}&league_id={0}",
-    "https://web1.mbt.lt/prod/api/leagues/{0}/seasons/{1}/teams/{2}/games.json",
-    "https://web2.mbt.lt/prod/api/v1/leagues/{0}/seasons/{1}/teams/{2}/games",
-]
+KKI_JS_URL = "https://web1.mbt.lt/prod/snakesilver-client/integration/kki.js?v=11"
 
 def kki_url(team):
     return (
@@ -62,10 +54,7 @@ def normalize_game(g):
     )
     sh = g.get("home_score") if g.get("home_score") is not None else g.get("homeScore")
     sa = g.get("away_score") if g.get("away_score") is not None else g.get("awayScore")
-    venue = (
-        g.get("arena") or g.get("arena_name") or g.get("venue") or
-        g.get("location") or g.get("court") or ""
-    )
+    venue = g.get("arena") or g.get("arena_name") or g.get("venue") or g.get("location") or ""
     if not date_str and not home and not away:
         return None
     return {
@@ -81,120 +70,120 @@ def extract_games(data):
     if isinstance(data, list) and len(data) > 0:
         return data
     if isinstance(data, dict):
-        for key in ["games", "data", "matches", "results", "items", "schedule"]:
+        for key in ["games", "data", "matches", "results", "items", "schedule", "list"]:
             if key in data and isinstance(data[key], list) and len(data[key]) > 0:
                 return data[key]
     return []
 
-def fetch_team_via_api(page, team):
+def fetch_url(page, url, label=""):
+    """Sækir URL í gegnum Playwright með kki.is context."""
+    try:
+        result = page.evaluate("""
+            async (url) => {
+                try {
+                    const resp = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json, text/javascript, */*',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'omit',
+                    });
+                    const text = await resp.text();
+                    return { ok: resp.ok, status: resp.status, body: text };
+                } catch(e) {
+                    return { ok: false, error: e.message };
+                }
+            }
+        """, url)
+        return result
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def parse_kki_js(js_content):
     """
-    Kallar beint á MBT API endapunktana í gegnum Playwright
-    sem keyrir með kki.is context (réttir Origin/Referer hausar).
+    Les kki.js og finnur API base URL og endapunktana.
+    Leitar að strengjum eins og 'api/v1', '/games', '/teams' osfrv.
     """
+    print(f"\nGreini kki.js ({len(js_content)} stafir)...")
+
+    # Vista kki.js til greiningar
+    os.makedirs("data", exist_ok=True)
+    with open("data/kki_js_debug.txt", "w") as f:
+        f.write(js_content[:50000])  # Fyrstu 50k stafir
+
+    # Leitar að URL mynstrum í JS kóðanum
+    findings = {}
+
+    # Base URL
+    base_urls = re.findall(r'["\']https?://[^"\']*mbt\.lt[^"\']*["\']', js_content)
+    findings["mbt_base_urls"] = list(set(base_urls))
+
+    # API slóðir
+    api_paths = re.findall(r'["\'](/[a-z0-9_/{}]+(?:games|matches|schedule|results)[^"\']*)["\']', js_content)
+    findings["api_paths"] = list(set(api_paths))
+
+    # Allar slóðir með 'game' eða 'match'
+    game_strings = re.findall(r'["\']([^"\']*(?:game|match|schedule)[^"\']{0,50})["\']', js_content, re.IGNORECASE)
+    findings["game_strings"] = list(set(game_strings))[:20]
+
+    # Leitar að season_id, team_id, league_id í samhengi
+    id_patterns = re.findall(r'["\']([^"\']*(?:season|team|league)[^"\']{0,100})["\']', js_content, re.IGNORECASE)
+    findings["id_patterns"] = list(set(id_patterns))[:20]
+
+    print(f"  MBT base URLs: {findings['mbt_base_urls']}")
+    print(f"  API slóðir: {findings['api_paths']}")
+    print(f"  Game strengir: {findings['game_strings'][:5]}")
+
+    return findings
+
+def build_api_urls_from_js(js_findings, team):
+    """Byggir upp mögulegar API slóðir út frá kki.js greiningu."""
     lid = team["league_id"]
     sid = team["season_id"]
     tid = team["team_id"]
 
-    for url_template in MBT_URLS:
-        url = url_template.format(lid, sid, tid)
-        print(f"    Reyni: {url}")
-        try:
-            # Notum Playwright til að gera fetch() köll með kki.is origin
-            result = page.evaluate("""
-                async (url) => {
-                    try {
-                        const resp = await fetch(url, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json, text/javascript, */*',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                            credentials: 'omit',
-                        });
-                        if (!resp.ok) return { ok: false, status: resp.status };
-                        const text = await resp.text();
-                        return { ok: true, status: resp.status, body: text };
-                    } catch(e) {
-                        return { ok: false, error: e.message };
-                    }
-                }
-            """, url)
+    urls = []
 
-            if not result.get("ok"):
-                print(f"      → Villa: HTTP {result.get('status')} / {result.get('error', '')}")
-                continue
+    # Ef við fundum base URLs í JS
+    for base in js_findings.get("mbt_base_urls", []):
+        base = base.strip("'\"")
+        for path in js_findings.get("api_paths", []):
+            path = path.strip("'\"")
+            # Prófum að setja inn breyturnar
+            for p in [
+                path.replace("{league_id}", str(lid)).replace("{season_id}", str(sid)).replace("{team_id}", str(tid)),
+                path.replace("{leagueId}", str(lid)).replace("{seasonId}", str(sid)).replace("{teamId}", str(tid)),
+            ]:
+                if str(lid) in p or str(sid) in p or str(tid) in p:
+                    urls.append(base.rstrip("/") + "/" + p.lstrip("/"))
 
-            body = result.get("body", "")
-            try:
-                data = json.loads(body)
-            except json.JSONDecodeError:
-                print(f"      → Ekki JSON svar")
-                continue
-
-            games = extract_games(data)
-            if games:
-                print(f"      ✓ Fann {len(games)} leiki!")
-                normalized = [normalize_game(g) for g in games]
-                return [g for g in normalized if g is not None]
-            else:
-                print(f"      → JSON en engin leikjalisti")
-
-        except Exception as e:
-            print(f"      → Villa: {e}")
-
-    return []
-
-def fetch_team_via_page(page, team):
-    """
-    Varalausn: Hlerar API-köll þegar KKÍ síðan hleðst.
-    Notar route interception til að fanga MBT beiðnir.
-    """
-    url = kki_url(team)
-    captured = []
-
-    def handle_route(route):
-        req_url = route.request.url
-        if "mbt.lt" in req_url:
-            # Leyfum beiðnina en skráum hana
-            captured.append(req_url)
-        route.continue_()
-
-    page.route("**/*", handle_route)
-
-    print(f"    Hlera API köll á: {url[:60]}")
-    try:
-        page.goto(url, wait_until="domcontentloaded", timeout=25000)
-        page.wait_for_timeout(8000)  # Bíðum eftir async köllum
-    except PlaywrightTimeout:
-        print(f"    ⚠ Timeout")
-    except Exception as e:
-        print(f"    ⚠ {e}")
-
-    page.unroute("**/*")
-
-    if captured:
-        print(f"    Fann {len(captured)} MBT beiðnir:")
-        for u in captured:
-            print(f"      {u}")
-    else:
-        print(f"    Engar MBT beiðnir fundust")
-
-    return [], captured
+    # Alltaf bætum við þessum staðlaðu prófum
+    standard = [
+        f"https://web1.mbt.lt/prod/api/v1/leagues/{lid}/seasons/{sid}/teams/{tid}/games",
+        f"https://web1.mbt.lt/prod/api/v1/seasons/{sid}/teams/{tid}/games",
+        f"https://web1.mbt.lt/prod/api/v1/teams/{tid}/games?season_id={sid}",
+        f"https://web1.mbt.lt/prod/api/v1/teams/{tid}/schedule?season_id={sid}",
+        f"https://web1.mbt.lt/prod/api/v2/leagues/{lid}/seasons/{sid}/teams/{tid}/games",
+        f"https://web1.mbt.lt/prod/api/leagues/{lid}/seasons/{sid}/teams/{tid}/games.json",
+        f"https://web1.mbt.lt/prod/snakesilver/api/leagues/{lid}/seasons/{sid}/teams/{tid}/games",
+        f"https://web1.mbt.lt/prod/snakesilver/api/teams/{tid}/games?season={sid}",
+    ]
+    urls.extend(standard)
+    return urls
 
 def main():
     output = {
         "updated": datetime.now(timezone.utc).isoformat(),
         "teams": [],
-        "debug": []
+        "debug": {}
     }
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"]
+            args=["--no-sandbox", "--disable-setuid-sandbox"]
         )
-
-        # Context sem líkist kki.is umhverfi
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -204,36 +193,70 @@ def main():
             viewport={"width": 1280, "height": 800},
             extra_http_headers={
                 "Accept-Language": "is-IS,is;q=0.9,en;q=0.8",
-                "Origin": "https://kki.is",
                 "Referer": "https://kki.is/",
             }
         )
         page = context.new_page()
 
-        # Förum fyrst á kki.is til að setja upp rétt session/cookies
-        print("Hleð kki.is forsíðu...")
+        # Förum á kki.is til að setja upp session
+        print("1. Hleð kki.is...")
         try:
             page.goto("https://kki.is", wait_until="domcontentloaded", timeout=15000)
-            page.wait_for_timeout(2000)
-            print("  ✓ kki.is hlaðið")
+            page.wait_for_timeout(1000)
+            print("   ✓")
         except Exception as e:
-            print(f"  ⚠ {e}")
+            print(f"   ⚠ {e}")
 
+        # Sækjum og greinum kki.js
+        print(f"\n2. Sæki kki.js: {KKI_JS_URL}")
+        js_result = fetch_url(page, KKI_JS_URL, "kki.js")
+        js_findings = {}
+
+        if js_result.get("ok") and js_result.get("body"):
+            js_content = js_result["body"]
+            print(f"   ✓ Sótt ({len(js_content)} stafir)")
+            js_findings = parse_kki_js(js_content)
+            output["debug"]["kki_js_findings"] = js_findings
+        else:
+            print(f"   ✗ Tókst ekki: {js_result.get('error', js_result.get('status'))}")
+
+        # Sækjum gögn fyrir hvert lið
+        print("\n3. Sæki leikjagögn...")
         for i, team in enumerate(TEAMS):
             print(f"\n[{i+1}/{len(TEAMS)}] {team['name']}")
+            games = []
 
-            # Reynum beint API köll fyrst
-            games = fetch_team_via_api(page, team)
+            api_urls = build_api_urls_from_js(js_findings, team)
 
-            # Ef ekkert — reynum að hlera síðuna
-            if not games:
-                print(f"    Reyni hlustun á síðu...")
-                games, mbt_urls = fetch_team_via_page(page, team)
-                if mbt_urls:
-                    output["debug"].append({
-                        "team": team["key"],
-                        "mbt_urls": mbt_urls
-                    })
+            for url in api_urls:
+                print(f"  → {url}")
+                result = fetch_url(page, url)
+
+                if not result.get("ok"):
+                    print(f"     ✗ HTTP {result.get('status', '?')} / {result.get('error', '')}")
+                    continue
+
+                body = result.get("body", "")
+                if not body:
+                    print(f"     ✗ Tómt svar")
+                    continue
+
+                # Prófum JSON parse
+                try:
+                    data = json.loads(body)
+                except json.JSONDecodeError:
+                    # Kannski texti sem gefur okkur vísbendingu
+                    print(f"     ✗ Ekki JSON — svar: {body[:100]}")
+                    continue
+
+                found = extract_games(data)
+                if found:
+                    print(f"     ✓ FANN {len(found)} LEIKI!")
+                    normalized = [normalize_game(g) for g in found]
+                    games = [g for g in normalized if g is not None]
+                    break
+                else:
+                    print(f"     ~ JSON en engin leikjalisti. Lyklar: {list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
 
             output["teams"].append({
                 "key":       team["key"],
@@ -254,23 +277,13 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
 
     # Yfirlit
-    print(f"\n{'='*50}")
-    print(f"Uppfært: {output['updated']}")
-    total = 0
+    print(f"\n{'='*60}")
+    total = sum(len(t["games"]) for t in output["teams"])
     for t in output["teams"]:
         n = len(t["games"])
-        total += n
-        status = "✓" if n > 0 else "✗"
-        print(f"  {status} {t['name']}: {n} leikir")
+        print(f"  {'✓' if n else '✗'} {t['name']}: {n} leikir")
     print(f"  Samtals: {total} leikir")
-
-    if output["debug"]:
-        print(f"\nMBT slóðir sem fundust (til frekari greiningar):")
-        for d in output["debug"]:
-            for u in d["mbt_urls"]:
-                print(f"  {d['team']}: {u}")
-
-    print(f"{'='*50}")
+    print(f"{'='*60}")
 
 if __name__ == "__main__":
     main()
